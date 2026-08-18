@@ -1,0 +1,6 @@
+{
+  "python_syntax_errors": [],
+  "self_test_field_fixed": true,
+  "workflow_uses_body_pixels": false,
+  "bad_pixel_count_removed": true
+}

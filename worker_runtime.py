@@ -166,7 +166,7 @@ def run_self_test(seconds=10):
                 body_top=20, body_bottom=60, high=10, low=70,
                 open_px=base+(0.25 if bull else -0.15),
                 close_px=base+(0.45 if bull else -0.35),
-                bullish=bull, pixel_count=100, confidence=0.95
+                bullish=bull, body_pixels=100, confidence=0.95
             ))
         rep=tracker.update(candles)
         ids=[c.track_id for c in rep.candles]
