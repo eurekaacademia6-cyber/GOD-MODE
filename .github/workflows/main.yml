@@ -51,7 +51,7 @@ jobs:
 
 
       # =========================================================
-      # 4. VERIFY REQUIRED PROJECT FILES
+      # 4. VERIFY REQUIRED FILES
       # =========================================================
       - name: Verify project structure
         shell: pwsh
@@ -87,9 +87,7 @@ jobs:
           foreach ($file in $required) {
 
             if (!(Test-Path $file)) {
-
               Write-Error "MISSING REQUIRED FILE: $file"
-
             }
 
             Write-Host "OK: $file"
@@ -106,17 +104,14 @@ jobs:
           python -m compileall .
 
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "Python syntax validation failed."
-
+            Write-Error "Python syntax validation failed."
           }
 
           Write-Host "PYTHON SYNTAX OK"
 
 
       # =========================================================
-      # 6. IMPORT VALIDATION
+      # 6. CRITICAL IMPORTS
       # =========================================================
       - name: Validate critical imports
         shell: pwsh
@@ -124,13 +119,10 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: |
 
-          python -c "from PySide6.QtNetwork import QTcpServer, QTcpSocket; from PySide6.QtWidgets import QApplication; from ui.main_window import MainWindow; from worker_runtime import run_worker, run_self_test; from worker_entry import main; from vision.detector import CandleDetector, DetectorConfig; from vision.tracker import CandleTracker; from analysis.engine import AnalysisEngine; from audit import SessionAudit; from runtime_config import RuntimeConfig; print('ALL CRITICAL IMPORTS OK')"
+          python -c "from PySide6.QtNetwork import QTcpServer, QTcpSocket; from PySide6.QtWidgets import QApplication; from ui.main_window import MainWindow; from worker_runtime import run_worker, run_self_test; import worker_entry; from vision.detector import CandleDetector, DetectorConfig; from vision.tracker import CandleTracker; from analysis.engine import AnalysisEngine; from audit import SessionAudit; from runtime_config import RuntimeConfig; print('ALL CRITICAL IMPORTS OK')"
 
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "Critical import validation failed."
-
+            Write-Error "Critical import validation failed."
           }
 
 
@@ -144,15 +136,30 @@ jobs:
           python -c "import ast; from pathlib import Path; tree=ast.parse(Path('ui/main_window.py').read_text(encoding='utf-8')); cls=next((n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='MainWindow'),None); assert cls is not None,'MainWindow class missing'; methods={n.name for n in cls.body if isinstance(n,ast.FunctionDef)}; required={'__init__','_build_ui','start','stop','_start_worker','_accept_worker','_read_socket','_handle_frame','_update_tracking','_update_audit','_update_overlay','_update_health','_watchdog','closeEvent'}; missing=required-methods; assert not missing,f'Missing methods: {sorted(missing)}'; print('MAINWINDOW STRUCTURE OK')"
 
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "MainWindow structure validation failed."
-
+            Write-Error "MainWindow structure validation failed."
           }
 
 
       # =========================================================
-      # 8. OFFLINE TRACKER / ENGINE TEST
+      # 8. WORKER ENTRY POINT TEST
+      # =========================================================
+      - name: Test worker entry point
+        shell: pwsh
+        run: |
+
+          python worker_entry.py `
+            --self-test `
+            --self-test-seconds 5
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "Worker entry-point test failed."
+          }
+
+          Write-Host "WORKER ENTRY POINT OK"
+
+
+      # =========================================================
+      # 9. TRACKER + ANALYSIS ENGINE TEST
       # =========================================================
       - name: Test tracker and analysis engine
         shell: pwsh
@@ -161,17 +168,14 @@ jobs:
           python -c "from vision.models import Candle; from vision.tracker import CandleTracker; from analysis.engine import AnalysisEngine; t=CandleTracker(); a=[Candle(i*20,i*20-3,i*20+3,40,60,35,65,50,55,True,12,0.95) for i in range(18)]; r1=t.update(a); b=[Candle(i*20+1,i*20-2,i*20+4,40,60,36,64,52,58,True,13,0.96) for i in range(18)]; r2=t.update(b); assert [c.track_id for c in r1.candles]==[c.track_id for c in r2.candles]; assert r2.current_track_id>=0; assert len(r2.candles)==18; print('TRACKER TEST OK'); e=AnalysisEngine(); s=e.analyze(r2.candles,0.90); assert 0<=s.up_probability<=1; assert 0<=s.down_probability<=1; assert 0<=s.confidence<=1; print('ANALYSIS ENGINE TEST OK')"
 
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "Tracker/analysis test failed."
-
+            Write-Error "Tracker/analysis test failed."
           }
 
 
       # =========================================================
-      # 9. WORKER SOAK TEST
+      # 10. WORKER SOAK TEST
       # =========================================================
-      - name: Run worker offline soak test
+      - name: Run worker soak test
         shell: pwsh
         run: |
 
@@ -180,17 +184,14 @@ jobs:
             --self-test-seconds 15
 
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "Worker offline soak test failed."
-
+            Write-Error "Worker soak test failed."
           }
 
           Write-Host "WORKER SOAK TEST PASSED"
 
 
       # =========================================================
-      # 10. MAINWINDOW RUNTIME TEST
+      # 11. MAINWINDOW RUNTIME TEST
       # =========================================================
       - name: Test MainWindow startup
         shell: pwsh
@@ -201,15 +202,12 @@ jobs:
           python -c "from PySide6.QtWidgets import QApplication; from ui.main_window import MainWindow; app=QApplication([]); window=MainWindow(); print('MAINWINDOW RUNTIME OK'); window.close(); app.quit()"
 
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "MainWindow runtime test failed."
-
+            Write-Error "MainWindow runtime test failed."
           }
 
 
       # =========================================================
-      # 11. CLEAN BUILD DIRECTORIES
+      # 12. CLEAN BUILD DIRECTORIES
       # =========================================================
       - name: Clean build directories
         shell: pwsh
@@ -241,7 +239,7 @@ jobs:
 
 
       # =========================================================
-      # 12. BUILD GUI EXE
+      # 13. BUILD GUI EXE
       # =========================================================
       - name: Build GUI EXE
         shell: pwsh
@@ -262,17 +260,14 @@ jobs:
             main.py
 
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "GUI PyInstaller build failed."
-
+            Write-Error "GUI PyInstaller build failed."
           }
 
           Write-Host "GUI BUILD OK"
 
 
       # =========================================================
-      # 13. BUILD DEDICATED WORKER EXE
+      # 14. BUILD DEDICATED WORKER EXE
       # =========================================================
       - name: Build Worker EXE
         shell: pwsh
@@ -292,63 +287,40 @@ jobs:
             worker_entry.py
 
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "Worker PyInstaller build failed."
-
+            Write-Error "Worker PyInstaller build failed."
           }
 
           Write-Host "WORKER BUILD OK"
 
 
       # =========================================================
-      # 14. VERIFY BOTH EXE FILES
+      # 15. VERIFY EXECUTABLES
       # =========================================================
       - name: Verify generated executables
         shell: pwsh
         run: |
 
-          $gui = `
-            "dist\QuotexVisionAI\QuotexVisionAI.exe"
+          $gui = "dist\QuotexVisionAI\QuotexVisionAI.exe"
 
-          $worker = `
-            "dist\QuotexVisionAI-Worker\QuotexVisionAI-Worker.exe"
-
+          $worker = "dist\QuotexVisionAI-Worker\QuotexVisionAI-Worker.exe"
 
           if (!(Test-Path $gui)) {
-
-            Write-Error `
-              "GUI executable was not created."
-
+            Write-Error "GUI executable was not created."
           }
-
 
           if (!(Test-Path $worker)) {
-
-            Write-Error `
-              "Worker executable was not created."
-
+            Write-Error "Worker executable was not created."
           }
 
-
-          Write-Host ""
-          Write-Host "======================================"
-          Write-Host "GUI EXE"
-          Write-Host "======================================"
+          Write-Host "GUI EXE OK"
+          Write-Host "WORKER EXE OK"
 
           Get-Item $gui
-
-
-          Write-Host ""
-          Write-Host "======================================"
-          Write-Host "WORKER EXE"
-          Write-Host "======================================"
-
           Get-Item $worker
 
 
       # =========================================================
-      # 15. PACKAGED WORKER SELF TEST
+      # 16. PACKAGED WORKER SELF-TEST
       # =========================================================
       - name: Test packaged Worker EXE
         shell: pwsh
@@ -360,26 +332,21 @@ jobs:
             --self-test-seconds 10
 
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "Packaged worker self-test failed."
-
+            Write-Error "Packaged worker self-test failed."
           }
 
-          Write-Host `
-            "PACKAGED WORKER TEST OK"
+          Write-Host "PACKAGED WORKER TEST OK"
 
 
       # =========================================================
-      # 16. VERIFY IMPORTANT PACKAGED FILES
+      # 17. INSPECT PACKAGES
       # =========================================================
       - name: Inspect packaged application
         shell: pwsh
         run: |
 
           Write-Host ""
-          Write-Host "GUI PACKAGE"
-          Write-Host "======================================"
+          Write-Host "========== GUI PACKAGE =========="
 
           Get-ChildItem `
             "dist\QuotexVisionAI" `
@@ -387,10 +354,8 @@ jobs:
             -File |
             Select-Object FullName
 
-
           Write-Host ""
-          Write-Host "WORKER PACKAGE"
-          Write-Host "======================================"
+          Write-Host "========== WORKER PACKAGE =========="
 
           Get-ChildItem `
             "dist\QuotexVisionAI-Worker" `
@@ -400,7 +365,7 @@ jobs:
 
 
       # =========================================================
-      # 17. INSTALL INNO SETUP
+      # 18. INSTALL INNO SETUP
       # =========================================================
       - name: Install Inno Setup
         shell: pwsh
@@ -412,15 +377,12 @@ jobs:
             --no-progress
 
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "Inno Setup installation failed."
-
+            Write-Error "Inno Setup installation failed."
           }
 
 
       # =========================================================
-      # 18. BUILD WINDOWS INSTALLER
+      # 19. BUILD WINDOWS INSTALLER
       # =========================================================
       - name: Build Windows installer
         shell: pwsh
@@ -429,31 +391,22 @@ jobs:
           $iscc = `
             "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
 
-
           if (!(Test-Path $iscc)) {
-
-            Write-Error `
-              "Inno Setup compiler not found."
-
+            Write-Error "Inno Setup compiler not found."
           }
-
 
           & $iscc `
             "installer\QuotexVisionAI.iss"
 
-
           if ($LASTEXITCODE -ne 0) {
-
-            Write-Error `
-              "Inno Setup build failed."
-
+            Write-Error "Inno Setup build failed."
           }
 
           Write-Host "INSTALLER BUILD OK"
 
 
       # =========================================================
-      # 19. VERIFY INSTALLER
+      # 20. VERIFY INSTALLER
       # =========================================================
       - name: Verify installer
         shell: pwsh
@@ -462,25 +415,20 @@ jobs:
           $setup = `
             "installer\dist\QuotexVisionAI-Setup.exe"
 
-
           if (!(Test-Path $setup)) {
-
-            Write-Error `
-              "QuotexVisionAI-Setup.exe was not created."
-
+            Write-Error "Installer was not created."
           }
-
 
           Write-Host ""
           Write-Host "======================================"
-          Write-Host "INSTALLER CREATED"
+          Write-Host "INSTALLER CREATED SUCCESSFULLY"
           Write-Host "======================================"
 
           Get-Item $setup
 
 
       # =========================================================
-      # 20. UPLOAD FINAL INSTALLER
+      # 21. UPLOAD FINAL INSTALLER
       # =========================================================
       - name: Upload installer
         uses: actions/upload-artifact@v4
