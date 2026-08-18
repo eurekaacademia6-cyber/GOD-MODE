@@ -1,0 +1,14 @@
+{
+  "python_syntax_errors": [],
+  "missing_mainwindow_methods": [],
+  "bounded_ipc_queue": true,
+  "adaptive_fps": true,
+  "restartable_capture": true,
+  "worker_supervision": true,
+  "health_telemetry": true,
+  "session_csv_audit": true,
+  "offline_worker_soak_test": true,
+  "packaged_worker_soak_test": true,
+  "l6_confirmation_component": true,
+  "version": "5.4-GOD-MODE"
+}

@@ -1,0 +1,8 @@
+PySide6>=6.8
+mss>=10.0
+numpy>=2.1
+opencv-python>=4.10
+pywin32>=306
+scikit-learn>=1.6
+pandas>=2.2
+joblib>=1.4
